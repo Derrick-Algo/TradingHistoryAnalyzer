@@ -162,8 +162,17 @@ body::before {
 .history-clear-btn { font-size:18px; color:var(--text-muted); cursor:pointer; background:none; border:none; font-family:var(--font-ui); }
 .history-clear-btn:hover { color:var(--loss); }
 .history-list { overflow-y:auto; flex:1; }
-.history-list::-webkit-scrollbar { width:4px; }
-.history-list::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+/* ── Global scrollbar style (matches design: thick rounded thumb on dark track) ── */
+::-webkit-scrollbar              { width:12px; height:12px; }
+::-webkit-scrollbar-track        { background:#0d1117; border-radius:8px; }
+::-webkit-scrollbar-thumb        { background:#4a5568; border-radius:8px; border:3px solid #0d1117; }
+::-webkit-scrollbar-thumb:hover  { background:#718096; }
+::-webkit-scrollbar-corner       { background:#0d1117; }
+/* scrollbar-width for Firefox */
+* { scrollbar-width: auto; scrollbar-color: #4a5568 #0d1117; }
+
+.history-list::-webkit-scrollbar { width:12px; }
+.history-list::-webkit-scrollbar-thumb { background:#4a5568; border-radius:8px; border:3px solid #0d1117; }
 .history-empty { padding:20px 16px; color:var(--text-muted); font-size:18px; text-align:center; }
 .history-item {
   padding:14px 16px; border-bottom:1px solid var(--border);
@@ -307,9 +316,7 @@ body::before {
 .tbl-resize-handle svg { width:10px;height:10px;display:block; }
 .tbl-resizable-outer:hover .tbl-resize-handle { opacity:0.85; }
 .table-scroll  { min-width:max-content; }
-.table-wrapper::-webkit-scrollbar,.table-scroll::-webkit-scrollbar { width:5px;height:5px; }
-.table-wrapper::-webkit-scrollbar-track,.table-scroll::-webkit-scrollbar-track { background:var(--surface2); }
-.table-wrapper::-webkit-scrollbar-thumb,.table-scroll::-webkit-scrollbar-thumb { background:var(--border2);border-radius:3px; }
+/* table scrollbar: inherits global style above */
 
 table { border-collapse:separate;border-spacing:0;width:100%;font-size:inherit; }
 th,td { padding:9px 14px;border-bottom:1px solid var(--border);border-right:1px solid rgba(30,45,69,0.4);white-space:nowrap; }
@@ -321,10 +328,9 @@ tbody td { background:var(--surface); }
 /* swap row */
 .swap-row th { position:sticky;z-index:3;background:var(--surface2);padding:4px 14px 5px;border-bottom:2px solid var(--border2); }
 
-/* Sticky cols */
-/* Sticky columns now applied dynamically by applyStickyCols() after render */
-th:nth-child(1),td:nth-child(1) { position:sticky;left:0;z-index:2;background:var(--surface2);min-width:76px;border-right:1px solid var(--border); }
-thead th:nth-child(1),thead th:nth-child(2),.swap-row th:nth-child(1),.swap-row th:nth-child(2) { z-index:6; }
+/* Sticky cols — controlled entirely by applyStickyCols() JS (rowspan-aware).
+   No global nth-child sticky here to avoid mis-pinning swap/sub-header rows. */
+thead th:nth-child(1),thead th:nth-child(2),.swap-row th:nth-child(1),.swap-row th:nth-child(2) { z-index:4; }
 td:nth-child(2) { background:var(--surface2); }
 
 tbody tr:hover td { background:var(--surface2); }
@@ -484,9 +490,7 @@ th.th-cnt { font-size:inherit; padding-bottom:2px; border-left:1px dashed var(--
 .sa-tab.on { color:var(--accent); border-bottom-color:var(--accent); }
 .sa-tab:hover:not(.on) { color:var(--text); }
 .sa-body { flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
-.sa-body::-webkit-scrollbar { width:4px; }
-.sa-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
-
+/* sa-body / sa-tbl-wrap scrollbar: inherits global style */
 /* Strategy cards */
 .sa-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
 .sa-card.high { border-left:3px solid var(--profit); }
@@ -577,8 +581,7 @@ th.th-cnt { font-size:inherit; padding-bottom:2px; border-left:1px dashed var(--
   background:var(--surface); border:1px solid var(--border); border-radius:8px;
   max-height:260px; overflow-y:auto; overflow-x:auto; margin-bottom:12px;
 }
-.sa-tbl-wrap::-webkit-scrollbar { width:4px; height:4px; }
-.sa-tbl-wrap::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+/* sa-tbl-wrap scrollbar: inherits global style */
 .sa-dtbl { border-collapse:separate; border-spacing:0; width:100%; font-size:11px; min-width:680px; }
 .sa-dtbl th {
   position:sticky; top:0; z-index:2; background:var(--surface2);
@@ -1824,8 +1827,8 @@ function renderTableSimple(type, data, syms, swapBySym){
   </tr></tbody>`;
 
   tbl.innerHTML=html;
-  // Simple mode: only 1 sticky col (LOTS)
-  applyStickyCols(tbl, 1);
+  // Simple mode: only 1 sticky col (LOTS). Pass nSeries=0 → totalSticky=1+0=1
+  applyStickyCols(tbl, 0);
   fixSwapRowTop(tbl);
 }
 
@@ -2019,7 +2022,7 @@ function renderTable(type, piv, syms, allLots, swapBySym){
     </tr></tbody>`;
 
     tbl.innerHTML = html;
-    applyStickyCols(tbl, 1);  // only "Level" col is sticky (series col merged into data)
+    applyStickyCols(tbl, 1);  // freeze Level + Lots (2 cols)
     fixSwapRowTop(tbl);
     return;  // ← exit early; skip the multi-level rendering below
   }
@@ -2256,8 +2259,8 @@ function renderTable(type, piv, syms, allLots, swapBySym){
   </tr></tbody>`;
 
   tbl.innerHTML=html;
-  // Apply dynamic sticky columns: Level cell + all series columns stay frozen on horizontal scroll
-  applyStickyCols(tbl, nSeries);
+  // Detail mode: freeze exactly Martingale Level + 1 Lots series col = 2 cols total
+  applyStickyCols(tbl, 1);
   // Fix sticky top for swap row: measure actual first thead row height
   fixSwapRowTop(tbl);
 }
